@@ -11,8 +11,13 @@ var cheerio = require("cheerio");
 
 // Require all models
 var db = require("./models");
+var PORT = process.env.PORT || 3000;
 
-var PORT = 3000;
+
+
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines";
+mongoose.Promise = Promise;
+mongoose.connect(MONGODB_URI);
 
 // Initialize Express
 var app = express();
@@ -27,21 +32,35 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 // Connect to the Mongo DB
-mongoose.connect("mongodb://localhost/week18Populater");
 
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost/mongoHeadlines";
+mongoose.Promise = Promise;
+mongoose.connect(MONGODB_URI);
 // Routes
+app.get("/", (req, res) => {
+  db.Article.find({})
+    .then(dbArticle => {
+      res.render("home", { article: dbArticle});
+    })
+    .catch(err => {
+      res.json(err);
+    });
+});
 
 // A GET route for scraping the echoJS website
-app.get("/scrape", function(req, res) {
+app.get("/scrape", (req, res) => {
   // First, we grab the body of the html with request
-  axios.get("http://www.echojs.com/").then(function(response) {
+  axios.get("https://www.yahoo.com/news").then(response => {
     // Then, we load that into cheerio and save it to $ for a shorthand selector
     var $ = cheerio.load(response.data);
+    
 
     // Now, we grab every h2 within an article tag, and do the following:
-    $("article h2").each(function(i, element) {
+    $("h3.Mb(5px)").each(function(i, element) {
       // Save an empty result object
       var result = {};
+
+      console.log("got it");
 
       // Add the text and href of every link, and save them as properties of the result object
       result.title = $(this)
@@ -52,6 +71,7 @@ app.get("/scrape", function(req, res) {
         .attr("href");
 
       // Create a new Article using the `result` object built from scraping
+      console.log(result);
       db.Article.create(result)
         .then(function(dbArticle) {
           // View the added result in the console
@@ -62,7 +82,6 @@ app.get("/scrape", function(req, res) {
           return res.json(err);
         });
     });
-
     // If we were able to successfully scrape and save an Article, send a message to the client
     res.send("Scrape Complete");
   });
@@ -74,7 +93,7 @@ app.get("/articles", function(req, res) {
   db.Article.find({})
     .then(function(dbArticle) {
       // If we were able to successfully find Articles, send them back to the client
-      res.json(dbArticle);
+      res.render("home", { article: dbArticle });
     })
     .catch(function(err) {
       // If an error occurred, send it to the client
